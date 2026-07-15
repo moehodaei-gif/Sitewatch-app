@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">SiteWatch</string>
+    <string name="title_activity_main">SiteWatch</string>
+    <string name="package_name">com.sitewatch.app</string>
+    <string name="custom_url_scheme">com.sitewatch.app</string>
+</resources>

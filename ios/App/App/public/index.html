@@ -1,0 +1,697 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SiteWatch</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+<style>
+  :root{
+    /* Palette taken from Intertek Building Science observation report templates:
+       navy = "Intertek Address" style (#003579), gold = section-banner shading (#FFC700) */
+    --navy:#003579; --navy-dark:#00224e; --gold:#FFC700; --gold-dark:#d9a900; --accent:#c0392b; --gray-bg:#f4f6f8;
+    --border:#d7dde3; --text:#22303f; --muted:#647186; --green:#2e7d4f; --amber:#b8860b;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:Calibri,"Segoe UI",Arial,Helvetica,sans-serif;background:var(--gray-bg);color:var(--text);}
+  header.topbar{background:var(--navy);color:#fff;padding:14px 24px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:50;border-bottom:3px solid var(--gold);}
+  header.topbar h1{font-size:17px;margin:0;font-weight:600;letter-spacing:.2px;}
+  header.topbar .sub{font-size:12px;color:#c7d3e0;margin-top:2px;}
+  .topbar-actions button{background:transparent;border:1px solid #4a6485;color:#fff;padding:6px 10px;border-radius:6px;font-size:12px;cursor:pointer;margin-left:8px;}
+  .topbar-actions button:hover{background:#28496f;}
+  #app{max-width:1100px;margin:0 auto;padding:20px;}
+  .crumbs{font-size:13px;color:var(--muted);margin-bottom:14px;}
+  .crumbs a{color:var(--navy);cursor:pointer;text-decoration:none;}
+  .crumbs a:hover{text-decoration:underline;}
+  .card{background:#fff;border:1px solid var(--border);border-radius:10px;padding:20px;margin-bottom:18px;}
+  .card h2{margin-top:0;font-size:16px;color:var(--navy-dark);}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+  .grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;}
+  label{display:block;font-size:12px;font-weight:600;color:var(--muted);margin-bottom:4px;margin-top:10px;text-transform:uppercase;letter-spacing:.4px;}
+  input[type=text],input[type=date],input[type=time],input[type=number],textarea,select{
+    width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:6px;font-size:14px;font-family:inherit;background:#fff;color:var(--text);
+  }
+  textarea{resize:vertical;min-height:60px;}
+  .btn{display:inline-block;padding:9px 16px;border-radius:7px;border:none;font-size:13px;font-weight:600;cursor:pointer;}
+  .btn-primary{background:var(--navy);color:#fff;}
+  .btn-primary:hover{background:var(--navy-dark);}
+  .btn-outline{background:#fff;border:1px solid var(--border);color:var(--text);}
+  .btn-outline:hover{background:#f0f2f5;}
+  .btn-danger{background:#fff;border:1px solid #e2b4ad;color:var(--accent);}
+  .btn-danger:hover{background:#fdf1ef;}
+  .btn-sm{padding:5px 10px;font-size:12px;}
+  .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap;}
+  .row.between{justify-content:space-between;}
+  table{width:100%;border-collapse:collapse;margin-top:8px;font-size:13px;}
+  th,td{border:1px solid var(--border);padding:7px 8px;text-align:left;vertical-align:top;}
+  th{background:var(--gold);font-size:11px;text-transform:uppercase;letter-spacing:.3px;color:#1a1a1a;font-weight:700;border-top:1px solid #000;border-bottom:1px solid #000;}
+  .tag{display:inline-block;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:600;}
+  .tag-def{background:#fbe6e3;color:var(--accent);}
+  .tag-wip{background:#fdf2d9;color:var(--amber);}
+  .tag-fu{background:#e3ecfb;color:#2255a4;}
+  .tag-obs{background:#e6f3ea;color:var(--green);}
+  .tag-open{background:#fdeee9;color:var(--accent);}
+  .tag-closed{background:#e6f3ea;color:var(--green);}
+  .tag-draft{background:#fff2cc;color:#8a6d00;}
+  .tag-final{background:#e6f3ea;color:var(--green);}
+  .tabs{display:flex;gap:4px;border-bottom:2px solid var(--border);margin-bottom:16px;}
+  .tab-btn{background:none;border:none;padding:9px 16px;font-size:13px;font-weight:600;color:var(--muted);cursor:pointer;border-bottom:3px solid transparent;margin-bottom:-2px;}
+  .tab-btn.active{color:var(--navy);border-bottom-color:var(--gold-dark);}
+  .tab-btn:hover{color:var(--navy);}
+  .recipient-row{display:flex;gap:8px;align-items:center;padding:9px 12px;border:1px solid var(--border);border-radius:6px;margin-bottom:6px;}
+  .recipient-row .who{flex:1;font-size:13px;}
+  .recipient-row .who .rname{font-weight:600;}
+  .recipient-row .who .remail{color:var(--muted);font-size:12px;}
+  .status-bar{display:flex;gap:10px;align-items:center;margin-bottom:12px;flex-wrap:wrap;}
+  .empty{color:var(--muted);font-size:13px;padding:14px 0;text-align:center;}
+  .proj-list{display:grid;gap:10px;}
+  .proj-item{display:flex;justify-content:space-between;align-items:center;padding:14px 16px;border:1px solid var(--border);border-radius:8px;cursor:pointer;background:#fff;}
+  .proj-item:hover{border-color:var(--navy);box-shadow:0 1px 4px rgba(0,53,121,.12);}
+  .proj-item .meta{font-size:12px;color:var(--muted);margin-top:3px;}
+  .badge-count{background:var(--navy);color:#fff;border-radius:12px;padding:2px 9px;font-size:12px;}
+  .report-item{display:flex;justify-content:space-between;align-items:center;padding:12px 14px;border:1px solid var(--border);border-radius:8px;margin-bottom:8px;cursor:pointer;}
+  .report-item:hover{border-color:var(--navy);}
+  .item-row{display:grid;grid-template-columns:70px 1fr 1fr 140px 90px 34px;gap:8px;align-items:start;margin-bottom:8px;}
+  .item-row input,.item-row select,.item-row textarea{font-size:12.5px;}
+  .remove-x{background:#fff;border:1px solid var(--border);border-radius:6px;height:34px;cursor:pointer;color:var(--accent);}
+  .open-check{display:flex;gap:8px;align-items:flex-start;padding:8px;border:1px solid var(--border);border-radius:6px;margin-bottom:6px;background:#fafbfc;}
+  .open-check .txt{font-size:13px;flex:1;}
+  .open-check .txt .oi-loc{font-weight:600;}
+  .section-title{
+    font-size:12.5px;font-weight:700;color:#1a1a1a;margin:18px 0 6px;text-transform:uppercase;letter-spacing:.4px;
+    background:var(--gold);padding:6px 10px;border-top:1px solid #000;border-bottom:1px solid #000;text-align:center;
+  }
+  .helptext{font-size:12px;color:var(--muted);margin-top:2px;}
+  .toolbar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:6px;}
+  .doc-header{border:1px solid var(--border);padding:16px;border-radius:8px;margin-bottom:16px;background:#fbfcfd;}
+  .doc-header .title{font-size:15px;font-weight:700;color:#1a1a1a;text-transform:uppercase;letter-spacing:.2px;}
+  .doc-header .contact{font-family:Arial,Helvetica,sans-serif;color:var(--navy);font-size:11px;line-height:1.5;}
+  .doc-grid{display:grid;grid-template-columns:1fr 1fr;gap:0;border:1px solid var(--border);margin-top:10px;}
+  .doc-grid > div{padding:10px;border-right:1px solid var(--border);font-size:12.5px;}
+  .doc-grid > div:last-child{border-right:none;}
+  .photo-thumbs{display:flex;gap:6px;flex-wrap:wrap;margin-top:4px;}
+  .photo-thumbs img{width:56px;height:56px;object-fit:cover;border-radius:4px;border:1px solid var(--border);}
+  #fileImportInput{display:none;}
+  .draft-banner{
+    display:flex;gap:10px;align-items:flex-start;background:#fff9e6;border:1px solid var(--gold-dark);
+    border-left:5px solid var(--gold-dark);border-radius:6px;padding:12px 14px;margin-bottom:16px;font-size:12.5px;color:#1a1a1a;
+    position:relative;z-index:6;
+  }
+  .draft-banner strong{color:var(--navy);text-transform:uppercase;letter-spacing:.3px;font-size:11px;display:block;margin-bottom:3px;}
+  #reportPrintArea{position:relative;overflow:hidden;}
+  .watermark{
+    position:absolute;top:50%;left:50%;transform:translate(-50%,-50%) rotate(-38deg);
+    font-size:96px;font-weight:700;color:rgba(102,102,102,.32);letter-spacing:14px;
+    pointer-events:none;z-index:5;white-space:nowrap;font-family:Calibri,Arial,sans-serif;user-select:none;
+  }
+  @media print{
+    header.topbar,.no-print{display:none !important;}
+    body{background:#fff;}
+    #app{max-width:100%;padding:0;}
+    .card{border:none;padding:0;margin-bottom:10px;}
+    .watermark{position:fixed;font-size:110px;}
+  }
+  .field-label{display:none;}
+  .table-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch;}
+  @media (max-width: 680px){
+    #app{padding:12px;}
+    header.topbar{padding:12px 14px;flex-wrap:wrap;row-gap:8px;}
+    header.topbar h1{font-size:15px;}
+    .topbar-actions{display:flex;flex-wrap:wrap;gap:6px;}
+    .topbar-actions button{margin-left:0;padding:8px 10px;}
+    .card{padding:14px;border-radius:8px;}
+    .grid,.grid3{grid-template-columns:1fr;}
+    .doc-grid{grid-template-columns:1fr;}
+    .doc-grid > div{border-right:none;border-bottom:1px solid var(--border);}
+    .doc-grid > div:last-child{border-bottom:none;}
+    input[type=text],input[type=date],input[type=time],input[type=number],textarea,select{
+      font-size:16px;padding:11px 12px; /* 16px prevents iOS Safari auto-zoom on focus */
+    }
+    .btn{padding:12px 16px;font-size:14px;min-height:44px;}
+    .row{gap:8px;}
+    .proj-item,.report-item{flex-direction:column;align-items:stretch;gap:10px;}
+    .proj-item > .row,.report-item > .row{justify-content:flex-start;}
+    .item-row{grid-template-columns:1fr;gap:2px;background:#fafbfc;border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:12px;}
+    .item-row-header{display:none;}
+    .item-row .field{margin-bottom:6px;}
+    .field-label{display:block;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.3px;margin:4px 0 3px;}
+    .item-row .remove-x{width:100%;margin-top:6px;height:40px;}
+    table{font-size:12px;}
+    th,td{padding:6px;}
+    .doc-header .title{font-size:13px;}
+    .watermark{font-size:56px;letter-spacing:6px;}
+    .tabs{overflow-x:auto;-webkit-overflow-scrolling:touch;flex-wrap:nowrap;}
+    .tab-btn{white-space:nowrap;padding:9px 12px;}
+    .status-bar,.row.no-print{gap:8px;}
+  }
+</style>
+</head>
+<body>
+<header class="topbar">
+  <div>
+    <h1>SiteWatch</h1>
+    <div class="sub">Site observation &amp; deficiency tracking</div>
+  </div>
+  <div class="topbar-actions no-print">
+    <button onclick="exportBackup()">Export backup</button>
+    <button onclick="document.getElementById('fileImportInput').click()">Import backup</button>
+    <input type="file" id="fileImportInput" accept="application/json" onchange="importBackup(event)">
+  </div>
+</header>
+<div id="app"></div>
+
+<script>
+/* ---------------- Data layer ---------------- */
+const STORAGE_KEY = 'fieldInspectionApp.v1';
+let state = load();
+let view = { screen: 'projects', projectId: null, reportId: null, editingReportId: null, projectTab: 'reports' };
+
+function load(){
+  try{
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if(raw) return JSON.parse(raw);
+  }catch(e){ console.error(e); }
+  return { projects: [] };
+}
+function save(){ localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
+function uid(){ return Math.random().toString(36).slice(2,10) + Date.now().toString(36).slice(-4); }
+
+function getProject(id){ return state.projects.find(p=>p.id===id); }
+function getReport(proj, id){ return proj.reports.find(r=>r.id===id); }
+
+/* Classification helpers */
+const CLASSIFICATIONS = ['Observation','Follow-up Required','Work in Progress','Deficiency'];
+const CLASS_DEFS = {
+  'Observation':'Documentation of items discussed/observed that do not require repairs or follow-up.',
+  'Follow-up Required':'Not a deficiency, but requires follow-up (e.g. compatibility documentation from manufacturers).',
+  'Work in Progress':'Items not yet constructed in a manner that will meet project requirements, but not complete.',
+  'Deficiency':'Items that are complete, do not meet project requirements, and/or are detrimental to project performance.'
+};
+function classTagClass(c){
+  if(c==='Deficiency') return 'tag-def';
+  if(c==='Work in Progress') return 'tag-wip';
+  if(c==='Follow-up Required') return 'tag-fu';
+  return 'tag-obs';
+}
+function needsFollowUp(c){ return c !== 'Observation'; }
+
+/* Build a flat, chronologically ordered list of all tracked items for a project up to (and optionally excluding) a report */
+function allItemsUpTo(proj, reportId, excludeReportId){
+  const reportsSorted = [...proj.reports].sort((a,b)=> (a.seq||0)-(b.seq||0));
+  let items = [];
+  for(const r of reportsSorted){
+    if(excludeReportId && r.id===excludeReportId) continue;
+    for(const it of (r.newItems||[])){
+      items.push({...it, sourceReportId: r.id, sourceReportNum: r.reportNumber});
+    }
+    if(reportId && r.id===reportId) break;
+  }
+  return items;
+}
+
+/* Determine which items are still OPEN as of just before `report` was created (i.e. not resolved in any earlier report and needs follow up) */
+function openItemsBefore(proj, report){
+  const priorItems = allItemsUpTo(proj, null, null).filter(it => (proj.reports.find(r=>r.id===it.sourceReportId).seq) < report.seq);
+  return priorItems.filter(it => needsFollowUp(it.classification) && !isResolvedBefore(proj, it, report));
+}
+function isResolvedBefore(proj, item, beforeReport){
+  for(const r of proj.reports){
+    if(r.seq >= beforeReport.seq) continue;
+    if((r.resolvedItemIds||[]).includes(item.id)) return true;
+  }
+  return false;
+}
+/* Items resolved specifically IN this report */
+function resolvedInReport(proj, report){
+  const allPrior = allItemsUpTo(proj, null, null);
+  return allPrior.filter(it => (report.resolvedItemIds||[]).includes(it.id));
+}
+/* Items still open as of AFTER this report (used to render this report's Open Items table = open-before minus resolved-in-this-report) */
+function openItemsForReportTable(proj, report){
+  const before = openItemsBefore(proj, report);
+  const resolvedIds = new Set(report.resolvedItemIds||[]);
+  return before.filter(it => !resolvedIds.has(it.id));
+}
+
+/* ---------------- Router / render ---------------- */
+function go(screen, opts={}){
+  view = { screen, projectId: opts.projectId ?? null, reportId: opts.reportId ?? null, editingReportId: opts.editingReportId ?? null, projectTab: opts.projectTab ?? 'reports' };
+  render();
+}
+function render(){
+  const app = document.getElementById('app');
+  if(view.screen === 'projects') app.innerHTML = renderProjectsScreen();
+  else if(view.screen === 'project') app.innerHTML = renderProjectScreen();
+  else if(view.screen === 'reportForm'){
+    app.innerHTML = renderReportForm();
+    renderItemRows(view.projectId, currentFormSeq);
+  }
+  else if(view.screen === 'reportView') app.innerHTML = renderReportView();
+  window.scrollTo(0,0);
+}
+
+/* ---------------- Screen: Projects list ---------------- */
+function renderProjectsScreen(){
+  const rows = state.projects.map(p=>{
+    const openCount = p.reports.length ? openItemsForReportTable(p, {seq: Infinity}).length : 0;
+    return `<div class="proj-item" onclick="go('project',{projectId:'${p.id}'})">
+      <div>
+        <div style="font-weight:700;">${esc(p.name)}</div>
+        <div class="meta">Project No. ${esc(p.projectNo||'—')} &middot; ${esc(p.location||'—')} &middot; ${p.reports.length} report(s)</div>
+      </div>
+      <div class="row">
+        ${openCount ? `<span class="badge-count" title="Open items">${openCount} open</span>` : ''}
+        <button class="btn btn-sm btn-danger no-print" onclick="event.stopPropagation();deleteProject('${p.id}')">Delete</button>
+      </div>
+    </div>`;
+  }).join('');
+  return `
+  <div class="card">
+    <div class="row between">
+      <h2 style="margin:0;">Projects</h2>
+      <button class="btn btn-primary" onclick="openNewProjectForm()">+ New Project</button>
+    </div>
+    <div id="newProjFormHost"></div>
+    <div class="proj-list" style="margin-top:14px;">
+      ${rows || '<div class="empty">No projects yet. Create one to start logging site visits.</div>'}
+    </div>
+  </div>`;
+}
+function openNewProjectForm(){
+  const host = document.getElementById('newProjFormHost');
+  host.innerHTML = `
+  <div class="card" style="background:#fafbfc;">
+    <h2>New Project</h2>
+    <div class="grid">
+      <div><label>Project Name</label><input id="npName" type="text" placeholder="e.g. The Sage at Franklin Park"></div>
+      <div><label>Project No.</label><input id="npNo" type="text" placeholder="e.g. S5349.01"></div>
+    </div>
+    <label>Project Location</label><input id="npLoc" type="text" placeholder="Address">
+    <div class="grid">
+      <div><label>Report Issued To (Client)</label><input id="npClient" type="text" placeholder="Company / address"></div>
+      <div><label>General Contractor</label><input id="npGC" type="text" placeholder="Company / contact / phone"></div>
+    </div>
+    <div class="row" style="margin-top:14px;">
+      <button class="btn btn-primary" onclick="createProject()">Save Project</button>
+      <button class="btn btn-outline" onclick="render()">Cancel</button>
+    </div>
+  </div>`;
+}
+function createProject(){
+  const name = document.getElementById('npName').value.trim();
+  if(!name){ alert('Project name is required.'); return; }
+  const p = {
+    id: uid(), name,
+    projectNo: document.getElementById('npNo').value.trim(),
+    location: document.getElementById('npLoc').value.trim(),
+    client: document.getElementById('npClient').value.trim(),
+    gc: document.getElementById('npGC').value.trim(),
+    reports: []
+  };
+  state.projects.push(p); save();
+  go('project',{projectId:p.id});
+}
+function deleteProject(id){
+  if(!confirm('Delete this project and all its reports? This cannot be undone.')) return;
+  state.projects = state.projects.filter(p=>p.id!==id); save(); render();
+}
+
+/* ---------------- Screen: Project detail (report list) ---------------- */
+function renderProjectScreen(){
+  const p = getProject(view.projectId);
+  if(!p) return `<div class="empty">Project not found.</div>`;
+  const openNow = p.reports.length ? openItemsForReportTable(p, {seq: Infinity}) : [];
+
+  return `
+  <div class="crumbs"><a onclick="go('projects')">Projects</a> / ${esc(p.name)}</div>
+  <div class="card">
+    <div class="row between">
+      <div>
+        <h2 style="margin:0;">${esc(p.name)}</h2>
+        <div class="meta" style="color:var(--muted);font-size:13px;">Project No. ${esc(p.projectNo||'—')} &middot; ${esc(p.location||'—')}</div>
+      </div>
+      <button class="btn btn-primary" onclick="go('reportForm',{projectId:'${p.id}'})">+ New Site Visit Report</button>
+    </div>
+    ${openNow.length ? `<div class="helptext" style="margin-top:10px;"><span class="tag tag-open">${openNow.length} item(s) currently open</span> across all reports for this project.</div>` : ''}
+  </div>
+
+  ${renderReportsTab(p)}
+  `;
+}
+function renderReportsTab(p){
+  const sorted = [...p.reports].sort((a,b)=>b.seq-a.seq);
+  const rows = sorted.map(r=>{
+    const newCt = (r.newItems||[]).length;
+    const resCt = (r.resolvedItemIds||[]).length;
+    const isFinal = r.status === 'Final';
+    return `<div class="report-item" onclick="go('reportView',{projectId:'${p.id}',reportId:'${r.id}'})">
+      <div>
+        <div style="font-weight:600;">Report #${esc(r.reportNumber)} &mdash; ${esc(r.date||'no date')} <span class="tag ${isFinal?'tag-final':'tag-draft'}">${isFinal?'Final':'Draft'}</span></div>
+        <div class="meta" style="font-size:12px;color:var(--muted);">${esc(r.focus||'')}</div>
+      </div>
+      <div class="row">
+        <span style="font-size:12px;color:var(--muted);">${newCt} new &middot; ${resCt} resolved</span>
+        <button class="btn btn-sm btn-outline no-print" onclick="event.stopPropagation();go('reportForm',{projectId:'${p.id}',editingReportId:'${r.id}'})">Edit</button>
+        <button class="btn btn-sm btn-danger no-print" onclick="event.stopPropagation();deleteReport('${p.id}','${r.id}')">Delete</button>
+      </div>
+    </div>`;
+  }).join('');
+  return `
+  <div class="card">
+    <h2>Site Visit Reports</h2>
+    ${rows || '<div class="empty">No reports yet for this project.</div>'}
+  </div>`;
+}
+function deleteReport(pid, rid){
+  if(!confirm('Delete this report? Items it introduced will also be removed from tracking.')) return;
+  const p = getProject(pid);
+  p.reports = p.reports.filter(r=>r.id!==rid);
+  save(); go('project',{projectId:pid});
+}
+
+/* ---------------- Screen: Report Form (create/edit) ---------------- */
+let formNewItems = [];
+let formResolvedIds = new Set();
+let formPhotos = {}; // itemId -> dataURL
+let currentFormSeq = null;
+
+function renderReportForm(){
+  const p = getProject(view.projectId);
+  const editing = view.editingReportId ? getReport(p, view.editingReportId) : null;
+  const nextSeq = (p.reports.reduce((m,r)=>Math.max(m,r.seq||0),0)) + 1;
+  const seq = editing ? editing.seq : nextSeq;
+
+  formNewItems = editing ? JSON.parse(JSON.stringify(editing.newItems||[])) : [];
+  formResolvedIds = new Set(editing ? (editing.resolvedItemIds||[]) : []);
+  formPhotos = {};
+  formNewItems.forEach(it=>{ if(it.photoData) formPhotos[it.id] = it.photoData; });
+
+  const openBefore = openItemsBefore(p, editing ? editing : {seq: seq});
+  currentFormSeq = seq;
+
+  const openRows = openBefore.map(it=>{
+    const checked = formResolvedIds.has(it.id) ? 'checked' : '';
+    return `<div class="open-check">
+      <input type="checkbox" ${checked} onchange="toggleResolved('${it.id}', this.checked)">
+      <div class="txt"><span class="oi-loc">${esc(it.itemNum)} — ${esc(it.location)}</span><br>
+      ${esc(it.observation)} <span class="tag ${classTagClass(it.classification)}">${esc(it.classification)}</span>
+      <span style="color:var(--muted);"> (from Report #${esc(it.sourceReportNum)})</span></div>
+    </div>`;
+  }).join('') || '<div class="empty">No open items carried forward.</div>';
+
+  return `
+  <div class="crumbs"><a onclick="go('projects')">Projects</a> / <a onclick="go('project',{projectId:'${p.id}'})">${esc(p.name)}</a> / ${editing?'Edit':'New'} Report</div>
+  <div class="card">
+    <h2>${editing?'Edit':'New'} Site Visit Report — #${seq}</h2>
+    <div class="grid3">
+      <div><label>Report Number</label><input id="rNum" type="text" value="${esc(String(seq))}"></div>
+      <div><label>Site Visit Date</label><input id="rDate" type="date" value="${editing?editing.date:''}"></div>
+      <div><label>Arrival Time</label><input id="rTime" type="text" placeholder="e.g. 9:30 AM" value="${editing?esc(editing.arrival||''):''}"></div>
+    </div>
+    <div class="grid3">
+      <div><label>Weather</label><input id="rWeather" type="text" placeholder="e.g. Sunny" value="${editing?esc(editing.weather||''):''}"></div>
+      <div><label>Persons Present</label><input id="rPersons" type="text" placeholder="Names / companies" value="${editing?esc(editing.persons||''):''}"></div>
+      <div><label>Prepared By</label><input id="rPreparedBy" type="text" placeholder="Inspector name" value="${editing?esc(editing.preparedBy||''):''}"></div>
+    </div>
+    <label>Focus / Progress Summary</label>
+    <textarea id="rFocus" placeholder="What was observed / focus of this visit...">${editing?esc(editing.focus||''):''}</textarea>
+    <label>Items Discussed Onsite (narrative)</label>
+    <textarea id="rDiscussed" placeholder="Narrative of items discussed with contractor...">${editing?esc(editing.discussed||''):''}</textarea>
+  </div>
+
+  <div class="card">
+    <h2>Open Items Carried Forward</h2>
+    <div class="helptext">Check any item that was resolved as of this visit — it will move to "Resolved Items" for this report.</div>
+    <div style="margin-top:10px;">${openRows}</div>
+  </div>
+
+  <div class="card">
+    <div class="row between">
+      <h2 style="margin:0;">New Items Observed This Visit</h2>
+      <button class="btn btn-outline btn-sm" onclick="addItemRow()">+ Add Item</button>
+    </div>
+    <div id="itemRowsHost" style="margin-top:10px;"></div>
+  </div>
+
+  <div class="row no-print" style="margin-bottom:30px;">
+    <button class="btn btn-primary" onclick="saveReport('${p.id}','${editing?editing.id:''}', ${seq})">Save Report</button>
+    <button class="btn btn-outline" onclick="go(${editing?`'reportView',{projectId:'${p.id}',reportId:'${editing.id}'}`:`'project',{projectId:'${p.id}'}`})">Cancel</button>
+  </div>`;
+}
+function toggleResolved(itemId, checked){
+  if(checked) formResolvedIds.add(itemId); else formResolvedIds.delete(itemId);
+}
+function addItemRow(){
+  formNewItems.push({ id: uid(), itemNum:'', location:'', observation:'', classification:'Deficiency', photoNo:'' });
+  renderItemRows(view.projectId, currentFormSeq, true);
+}
+function removeItemRow(id){
+  formNewItems = formNewItems.filter(it=>it.id!==id);
+  renderItemRows(view.projectId, currentFormSeq, true);
+}
+function updateItemField(id, field, val){
+  const it = formNewItems.find(i=>i.id===id);
+  if(it) it[field] = val;
+}
+function handlePhotoUpload(id, input){
+  const file = input.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    formPhotos[id] = e.target.result;
+    const it = formNewItems.find(i=>i.id===id);
+    if(it) it.photoData = e.target.result;
+    renderItemRows(view.projectId, currentFormSeq, true);
+  };
+  reader.readAsDataURL(file);
+}
+function renderItemRows(pid, seq, keepScroll){
+  const host = document.getElementById('itemRowsHost');
+  if(!host) return;
+  formNewItems.forEach((it,idx)=>{ if(!it.itemNum) it.itemNum = (seq||'?') + '.' + (idx+1); });
+  host.innerHTML = `
+    <div class="item-row item-row-header" style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;">
+      <div>Item #</div><div>Location</div><div>Observation / Comment</div><div>Classification</div><div>Photo</div><div></div>
+    </div>
+    ` + formNewItems.map(it=>`
+    <div class="item-row">
+      <div class="field"><label class="field-label">Item #</label><input type="text" value="${esc(it.itemNum)}" onchange="updateItemField('${it.id}','itemNum',this.value)"></div>
+      <div class="field"><label class="field-label">Location</label><input type="text" value="${esc(it.location)}" placeholder="e.g. Building 9" onchange="updateItemField('${it.id}','location',this.value)"></div>
+      <div class="field"><label class="field-label">Observation / Comment</label><textarea onchange="updateItemField('${it.id}','observation',this.value)" placeholder="Describe observation...">${esc(it.observation)}</textarea></div>
+      <div class="field"><label class="field-label">Classification</label><select onchange="updateItemField('${it.id}','classification',this.value)">
+        ${CLASSIFICATIONS.map(c=>`<option value="${c}" ${it.classification===c?'selected':''}>${c}</option>`).join('')}
+      </select></div>
+      <div class="field">
+        <label class="field-label">Photo</label>
+        <input type="text" value="${esc(it.photoNo||'')}" placeholder="No." style="margin-bottom:4px;" onchange="updateItemField('${it.id}','photoNo',this.value)">
+        <input type="file" accept="image/*" onchange="handlePhotoUpload('${it.id}', this)">
+        ${formPhotos[it.id] ? `<div class="photo-thumbs"><img src="${formPhotos[it.id]}"></div>` : ''}
+      </div>
+      <button class="remove-x" onclick="removeItemRow('${it.id}')" title="Remove">&times;</button>
+    </div>`).join('') || '<div class="empty">No items added yet.</div>';
+}
+function saveReport(pid, existingId, seq){
+  const p = getProject(pid);
+  const existing = existingId ? getReport(p, existingId) : null;
+  const data = {
+    id: existingId || uid(),
+    seq: Number(document.getElementById('rNum').value) || seq,
+    reportNumber: document.getElementById('rNum').value.trim(),
+    date: document.getElementById('rDate').value,
+    arrival: document.getElementById('rTime').value.trim(),
+    weather: document.getElementById('rWeather').value.trim(),
+    persons: document.getElementById('rPersons').value.trim(),
+    preparedBy: document.getElementById('rPreparedBy').value.trim(),
+    focus: document.getElementById('rFocus').value.trim(),
+    discussed: document.getElementById('rDiscussed').value.trim(),
+    newItems: formNewItems.filter(it=>it.location || it.observation),
+    resolvedItemIds: Array.from(formResolvedIds),
+    status: existing ? existing.status : 'Draft'
+  };
+  if(existingId){
+    const idx = p.reports.findIndex(r=>r.id===existingId);
+    p.reports[idx] = data;
+  } else {
+    p.reports.push(data);
+  }
+  save();
+  go('reportView',{projectId:pid, reportId:data.id});
+}
+function finalizeReport(pid, rid){
+  if(!confirm('Finalize this report? It will be locked from further edits and the DRAFT watermark will be removed. You can reopen it as a draft later if needed.')) return;
+  const p = getProject(pid);
+  const r = getReport(p, rid);
+  r.status = 'Final';
+  save();
+  go('reportView',{projectId:pid, reportId:rid});
+}
+function reopenReport(pid, rid){
+  if(!confirm('Reopen this report as a draft? It will show the DRAFT watermark again and become editable.')) return;
+  const p = getProject(pid);
+  const r = getReport(p, rid);
+  r.status = 'Draft';
+  save();
+  go('reportView',{projectId:pid, reportId:rid});
+}
+
+/* ---------------- Screen: Report View (matches template layout) ---------------- */
+function renderReportView(){
+  const p = getProject(view.projectId);
+  const r = getReport(p, view.reportId);
+  if(!r) return `<div class="empty">Report not found.</div>`;
+  const newItems = r.newItems||[];
+  const resolved = resolvedInReport(p, r);
+  const open = openItemsForReportTable(p, r);
+
+  const itemTable = (items, withSourceCol) => items.length ? `
+    <div class="table-scroll"><table><thead><tr><th>Item #</th><th>Location</th><th>Observation / Comments</th><th>Classification</th><th>Photo No.</th>${withSourceCol?'<th>Source</th>':''}</tr></thead>
+    <tbody>${items.map(it=>`<tr>
+      <td>${esc(it.itemNum)}</td><td>${esc(it.location)}</td><td>${esc(it.observation)}</td>
+      <td><span class="tag ${classTagClass(it.classification)}">${esc(it.classification)}</span></td>
+      <td>${esc(it.photoNo||'—')}</td>
+      ${withSourceCol?`<td>Report #${esc(it.sourceReportNum)}</td>`:''}
+    </tr>`).join('')}</tbody></table></div>` : '<div class="empty">None</div>';
+
+  const photos = newItems.filter(it=>it.photoData);
+  const isFinal = r.status === 'Final';
+
+  return `
+  <div class="crumbs"><a onclick="go('projects')">Projects</a> / <a onclick="go('project',{projectId:'${p.id}'})">${esc(p.name)}</a> / Report #${esc(r.reportNumber)}</div>
+
+  <div class="status-bar no-print">
+    <span class="tag ${isFinal?'tag-final':'tag-draft'}" style="font-size:12px;padding:4px 10px;">${isFinal?'Final':'Draft'}</span>
+    ${isFinal
+      ? `<button class="btn btn-sm btn-outline" onclick="reopenReport('${p.id}','${r.id}')">Reopen as Draft</button>`
+      : `<button class="btn btn-sm btn-primary" onclick="finalizeReport('${p.id}','${r.id}')">Finalize Report</button>`}
+  </div>
+
+  <div class="row no-print" style="margin-bottom:12px;">
+    ${isFinal ? '' : `<button class="btn btn-outline" onclick="go('reportForm',{projectId:'${p.id}',editingReportId:'${r.id}'})">Edit</button>`}
+    <button class="btn btn-primary" id="sharePdfBtn" onclick="sharePdf('${p.id}','${r.id}')">Print / Save as PDF</button>
+  </div>
+  <div class="helptext no-print" style="margin:-6px 0 12px;">On iPhone/Android this opens the native Share sheet so you can save the PDF or send it straight to Mail, Outlook, AirDrop, etc. On desktop it downloads the PDF.</div>
+
+  <div class="card" id="reportPrintArea">
+    ${isFinal ? '' : `<div class="watermark">DRAFT</div>
+    <div class="draft-banner">
+      <div>
+        <strong>Draft — Not for Distribution</strong>
+        This is a preliminary draft compiled from field notes for internal review only; item classifications and findings may still change. The finalized, official version of this report will be issued shortly following quality review.
+      </div>
+    </div>`}
+    <div class="doc-header">
+      <div class="title">OBSERVATION REPORT for ${esc(p.name)} — #${esc(r.reportNumber)}</div>
+      <div class="contact" style="margin-top:2px;">Project No.: ${esc(p.projectNo||'—')} &nbsp;|&nbsp; Date: ${esc(r.date||'—')}</div>
+      <div class="doc-grid">
+        <div><strong>Report Issued To</strong><br>${esc(p.client||'—')}<br><br><strong>Project Location</strong><br>${esc(p.location||'—')}</div>
+        <div><strong>General Contractor</strong><br>${esc(p.gc||'—')}</div>
+      </div>
+    </div>
+
+    <div class="section-title">Summary</div>
+    <div class="doc-grid" style="margin-top:0;">
+      <div>Site Visit Date: ${esc(r.date||'—')}<br>Arrival Time: ${esc(r.arrival||'—')}<br>Weather: ${esc(r.weather||'—')}</div>
+      <div>Persons Present: ${esc(r.persons||'—')}</div>
+    </div>
+    <p style="font-size:13.5px;">${esc(r.focus||'')}</p>
+    ${r.preparedBy ? `<p style="font-size:13px;color:var(--muted);">Prepared by: ${esc(r.preparedBy)}, Project Manager</p>` : ''}
+
+    <div class="section-title">Observations</div>
+    <p style="font-size:13.5px;white-space:pre-wrap;">${esc(r.discussed||'')}</p>
+
+    <div class="section-title">Classification Definitions</div>
+    <div class="table-scroll"><table><tbody>
+      ${CLASSIFICATIONS.map(c=>`<tr><td style="width:160px;font-weight:600;">${c}</td><td>${CLASS_DEFS[c]}</td></tr>`).join('')}
+    </tbody></table></div>
+
+    <div class="section-title">New Items</div>
+    ${itemTable(newItems,false)}
+
+    <div class="section-title">Resolved Items</div>
+    ${itemTable(resolved,true)}
+
+    <div class="section-title">Open Items</div>
+    ${itemTable(open,true)}
+
+    ${photos.length ? `<div class="section-title">Photo Log</div><div class="photo-thumbs">${photos.map(it=>`<div style="text-align:center;font-size:10px;"><img src="${it.photoData}" style="width:90px;height:90px;"><br>#${esc(it.photoNo||it.itemNum)}</div>`).join('')}</div>` : ''}
+  </div>`;
+}
+
+/* ---------------- Print / Save as PDF (native share sheet, with a download fallback) ---------------- */
+function sharePdf(pid, rid){
+  const p = getProject(pid);
+  const r = getReport(p, rid);
+  const area = document.getElementById('reportPrintArea');
+  const btn = document.getElementById('sharePdfBtn');
+  const originalLabel = btn ? btn.textContent : '';
+  if(typeof html2pdf === 'undefined'){
+    alert('PDF generator failed to load — check your internet connection and try again.');
+    return;
+  }
+  if(btn){ btn.textContent = 'Generating PDF…'; btn.disabled = true; }
+  const opt = {
+    margin: 0.3,
+    filename: `${(r.reportNumber||'report')}.pdf`,
+    image: { type: 'jpeg', quality: 0.95 },
+    html2canvas: { scale: 2, useCORS: true, backgroundColor: '#ffffff' },
+    jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' }
+  };
+  html2pdf().set(opt).from(area).toPdf().output('blob').then(function(pdfBlob){
+    if(btn){ btn.textContent = originalLabel; btn.disabled = false; }
+    const filename = `${(r.reportNumber||'report')}.pdf`;
+    const file = new File([pdfBlob], filename, { type: 'application/pdf' });
+    const statusWord = r.status === 'Final' ? 'Final' : 'Draft';
+    const shareTitle = `${p.name} - Site Visit Report #${r.reportNumber} (${statusWord})`;
+    if(navigator.canShare && navigator.canShare({ files: [file] })){
+      navigator.share({ files: [file], title: shareTitle, text: shareTitle })
+        .catch(err => { if(err && err.name !== 'AbortError') alert('Share was cancelled or failed: ' + err.message); });
+    } else {
+      // Desktop / unsupported browser fallback: just download the PDF
+      const url = URL.createObjectURL(pdfBlob);
+      const a = document.createElement('a');
+      a.href = url; a.download = filename; a.click();
+      URL.revokeObjectURL(url);
+      alert('Your browser doesn\'t support the native Share sheet, so the PDF was downloaded instead — attach it manually to an email.');
+    }
+  }).catch(function(err){
+    if(btn){ btn.textContent = originalLabel; btn.disabled = false; }
+    alert('Could not generate the PDF: ' + err.message + '. Please try again.');
+  });
+}
+
+/* ---------------- Export helpers ---------------- */
+function exportBackup(){
+  const blob = new Blob([JSON.stringify(state,null,2)], {type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = 'inspection-app-backup.json'; a.click();
+  URL.revokeObjectURL(url);
+}
+function importBackup(evt){
+  const file = evt.target.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    try{
+      const data = JSON.parse(e.target.result);
+      if(!data.projects) throw new Error('Invalid file');
+      if(confirm('Import will replace current data. Continue?')){
+        state = data; save(); go('projects');
+      }
+    }catch(err){ alert('Could not read backup file: ' + err.message); }
+  };
+  reader.readAsText(file);
+  evt.target.value = '';
+}
+
+/* ---------------- Utils ---------------- */
+function esc(s){
+  if(s===undefined||s===null) return '';
+  return String(s).replace(/[&<>"']/g, c=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+}
+
+/* ---------------- Init ---------------- */
+render();
+</script>
+</body>
+</html>
